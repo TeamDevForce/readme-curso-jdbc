@@ -2,7 +2,7 @@
 
 Curso introdutório de **JDBC** utilizando **Java**, **Maven** e **PostgreSQL**.
 
-Durante o curso, vamos construir um pequeno sistema de cadastro de clientes, aplicando conceitos de persistência, organização de código e alguns padrões de projeto.
+Durante o curso, vamos construir um pequeno sistema de cadastro de clientes, entendendo como uma aplicação Java se comunica diretamente com um banco de dados e como podemos organizar essa comunicação utilizando separação de responsabilidades.
 
 ---
 
@@ -12,147 +12,216 @@ Ao final do curso, o aluno deverá ser capaz de:
 
 * compreender o que é JDBC;
 * conectar uma aplicação Java ao PostgreSQL;
+* utilizar `Connection` e `DriverManager`;
+* criar uma `ConnectionFactory`;
+* compreender os padrões Factory e Singleton;
 * executar operações de CRUD;
 * utilizar `PreparedStatement` e `ResultSet`;
 * mapear registros do banco para objetos Java;
 * aplicar o padrão DAO;
 * utilizar interfaces para desacoplar implementações;
-* criar uma `ConnectionFactory`;
-* compreender a aplicação de Factory e Singleton;
-* organizar uma aplicação Java com acesso a banco de dados.
+* criar uma camada de Service;
+* separar persistência de regras de negócio;
+* utilizar injeção de dependência pelo construtor;
+* organizar uma aplicação Java em responsabilidades bem definidas.
 
 ---
 
 # 📚 Estrutura do curso
 
-## Parte 1 — Setup e conexão
+O conteúdo será dividido em quatro arquivos:
 
-### Objetivo
+```text
+01-estrutura-do-curso.md
+02-setup-e-conexao.md
+03-crud-dao-e-interface.md
+04-service-e-regras-de-negocio.md
+```
 
-Entender o que é JDBC e conseguir estabelecer uma conexão entre a aplicação Java e o banco de dados.
+O primeiro arquivo apresenta a estrutura geral, configurações iniciais e banco de dados utilizado durante o curso.
 
-### Conteúdo
+Os demais arquivos acompanham a evolução da aplicação.
 
-* Introdução ao JDBC;
-* criação de um projeto Maven;
+---
+
+# Parte 1 — Setup e Conexão
+
+## Objetivo
+
+Entender como uma aplicação Java estabelece uma conexão com o PostgreSQL utilizando JDBC e como podemos centralizar a criação dessas conexões.
+
+## Conteúdo
+
+* introdução ao JDBC;
+* criação do projeto Maven;
 * configuração do `pom.xml`;
 * adição do driver PostgreSQL;
 * criação do banco de dados;
 * criação da tabela `cliente`;
 * conceito de `Connection`;
 * conceito de `DriverManager`;
-* criação de uma `ConnectionFactory`;
+* conexão direta com PostgreSQL;
+* criação da `ConnectionFactory`;
+* centralização da criação das conexões;
+* conceito de Factory;
+* conceito de Singleton;
+* Singleton aplicado à `ConnectionFactory`;
+* diferença entre Singleton da Factory e da `Connection`;
+* `try-with-resources`;
 * teste da conexão com o banco.
+
+## Fluxo
+
+```text
+Aplicação
+    ↓
+ConnectionFactory
+    ↓
+DriverManager
+    ↓
+Connection
+    ↓
+PostgreSQL
+```
+
+> O Singleton será aplicado à `ConnectionFactory`, e não à `Connection`.
+>
+> Cada operação poderá solicitar uma nova conexão ao banco.
 
 ---
 
-## Parte 2 — CRUD básico
+# Parte 2 — CRUD, DAO e Interface
 
-### Objetivo
+## Objetivo
 
-Entender o fluxo básico de persistência utilizando JDBC.
+Aprender a executar operações de persistência utilizando JDBC e organizar o acesso ao banco utilizando o padrão DAO.
 
-### Conteúdo
+## Conteúdo
 
+* criação da classe `Cliente`;
+* correspondência entre tipos PostgreSQL e Java;
 * `INSERT`;
 * `SELECT`;
 * `UPDATE`;
 * `DELETE`;
 * utilização de `PreparedStatement`;
+* parâmetros utilizando `?`;
+* `setString()`;
+* `setInt()`;
+* `setObject()`;
+* `executeUpdate()`;
+* `executeQuery()`;
 * utilização de `ResultSet`;
-* parâmetros em comandos SQL;
 * leitura dos dados retornados pelo banco;
-* conversão de registros para objetos Java;
-* criação da classe `Cliente`;
-* mapeamento de `ResultSet` para `Cliente`.
-
-### Operações estudadas
-
-```text
-Java
-  ↓
-Connection
-  ↓
-PreparedStatement
-  ↓
-PostgreSQL
-  ↓
-ResultSet
-  ↓
-Cliente
-```
-
----
-
-## Parte 3 — DAO + Interface
-
-### Objetivo
-
-Retirar os comandos SQL da classe principal e começar a organizar as responsabilidades da aplicação.
-
-### Conteúdo
-
+* mapeamento de registros para objetos Java;
 * conceito de DAO;
-* responsabilidade de uma classe DAO;
 * criação da interface `ClienteDAO`;
 * criação da implementação `ClienteDAOImpl`;
 * utilização de interfaces;
-* separação entre persistência e regra de negócio;
-* centralização das operações relacionadas ao banco.
+* separação das responsabilidades de persistência.
 
-### Estrutura esperada
+## CRUD desenvolvido
+
+| Operação         | SQL      | Método          |
+| ---------------- | -------- | --------------- |
+| Criar            | `INSERT` | `salvar()`      |
+| Consultar por ID | `SELECT` | `buscarPorId()` |
+| Listar           | `SELECT` | `listarTodos()` |
+| Atualizar        | `UPDATE` | `atualizar()`   |
+| Excluir          | `DELETE` | `excluir()`     |
+
+## Fluxo de persistência
 
 ```text
+Cliente
+   ↓
 ClienteDAO
-    ↑
-    │ implements
-    │
+   ↓
 ClienteDAOImpl
+   ↓
+ConnectionFactory
+   ↓
+JDBC
+   ↓
+PostgreSQL
+```
+
+Nas consultas, teremos também o caminho inverso:
+
+```text
+PostgreSQL
+    ↓
+ResultSet
+    ↓
+Cliente
 ```
 
 A interface define **o que pode ser feito**.
-
-A implementação define **como essas operações serão realizadas no banco de dados**.
-
-Exemplo:
 
 ```java
 public interface ClienteDAO {
 
     void salvar(Cliente cliente);
 
-    List<Cliente> listar();
+    Cliente buscarPorId(Integer id);
+
+    List<Cliente> listarTodos();
 
     void atualizar(Cliente cliente);
 
-    void excluir(Long id);
+    void excluir(Integer id);
 }
 ```
 
+A implementação `ClienteDAOImpl` define **como essas operações serão realizadas utilizando JDBC**.
+
 ---
 
-## Parte 4 — Factory + Singleton + organização final
+# Parte 3 — Service e Regras de Negócio
 
-### Objetivo
+## Objetivo
 
-Conhecer alguns padrões utilizados na organização do acesso ao banco de dados sem aumentar desnecessariamente a complexidade do projeto.
+Separar as regras de negócio da lógica de persistência, criando uma nova camada de responsabilidade na aplicação.
 
-### Conteúdo
+## Conteúdo
 
-* revisão da `ConnectionFactory`;
-* problema de espalhar `DriverManager.getConnection()` pelo projeto;
-* centralização da criação de conexões;
-* conceito de Factory;
-* conceito de Singleton;
-* Singleton aplicado à `ConnectionFactory`;
-* integração entre DAO e Factory;
-* fluxo completo do cadastro;
-* revisão da arquitetura final do projeto.
+* conceito de Service;
+* criação da `ClienteService`;
+* diferença entre persistência e regra de negócio;
+* validações de dados;
+* comunicação entre Service e DAO;
+* dependência através da interface `ClienteDAO`;
+* injeção de dependência pelo construtor;
+* montagem das dependências na `Main`;
+* fluxo completo da aplicação;
+* atividade prática para completar as demais operações.
 
-### Fluxo final
+## Separação das responsabilidades
+
+```text
+Cliente
+↓
+Representa os dados
+
+ClienteDAO / ClienteDAOImpl
+↓
+Persistência
+
+ClienteService
+↓
+Regras de negócio
+
+ConnectionFactory
+↓
+Criação das conexões
+```
+
+O fluxo completo da aplicação passa a ser:
 
 ```text
 Main
+  ↓
+ClienteService
   ↓
 ClienteDAO
   ↓
@@ -160,18 +229,24 @@ ClienteDAOImpl
   ↓
 ConnectionFactory
   ↓
-Connection
+JDBC
   ↓
 PostgreSQL
 ```
 
-> A `ConnectionFactory` pode ser Singleton, mas cada chamada pode fornecer uma nova `Connection`.
->
-> Dessa forma, não mantemos necessariamente uma única conexão com o banco durante toda a aplicação.
+A regra principal será:
+
+> **Regra de negócio não deve ficar dentro do DAO.**
+
+O DAO deve se preocupar com acesso aos dados.
+
+A Service deve se preocupar com validações, decisões e regras da aplicação.
 
 ---
 
-# 🗂️ Estrutura sugerida do projeto
+# 🗂️ Estrutura final do projeto
+
+Ao final do curso teremos aproximadamente a seguinte estrutura:
 
 ```text
 jdbc-clientes
@@ -194,8 +269,31 @@ jdbc-clientes
                         │   ├── ClienteDAO.java
                         │   └── ClienteDAOImpl.java
                         │
+                        ├── service
+                        │   └── ClienteService.java
+                        │
                         └── config
                             └── ConnectionFactory.java
+```
+
+Cada pacote terá uma responsabilidade:
+
+```text
+model
+↓
+Representação dos dados
+
+dao
+↓
+Acesso e persistência dos dados
+
+service
+↓
+Regras de negócio
+
+config
+↓
+Configuração e criação das conexões
 ```
 
 ---
@@ -257,7 +355,7 @@ devforce_jdbc
 
 # 📋 Tabela `cliente`
 
-A aplicação trabalhará inicialmente com apenas uma tabela.
+A aplicação trabalhará com apenas uma tabela.
 
 ```sql
 CREATE TABLE cliente (
@@ -305,16 +403,16 @@ FROM cliente;
 Resultado esperado:
 
 ```text
-id | nome            | data_nascimento | criado_em
----+-----------------+-----------------+---------------------
-1  | Ana Silva       | 1995-05-10      | ...
-2  | Carlos Souza    | 1988-11-23      | ...
-3  | Mariana Santos  | 2001-02-15      | ...
+id | nome             | data_nascimento | criado_em
+---+------------------+-----------------+---------------------
+1  | Ana Silva        | 1995-05-10      | ...
+2  | Carlos Souza     | 1988-11-23      | ...
+3  | Mariana Santos   | 2001-02-15      | ...
 ```
 
 ---
 
-# 🧩 Entidades do projeto
+# 🧩 Modelo do projeto
 
 ## Cliente
 
@@ -328,29 +426,54 @@ Cliente
 └── criadoEm
 ```
 
-Posteriormente esses campos serão mapeados utilizando o `ResultSet`.
+Esses campos posteriormente serão preenchidos através dos dados retornados pelo `ResultSet`.
+
+A correspondência será aproximadamente:
+
+```text
+Banco de dados       Java
+
+id                →  id
+nome              →  nome
+data_nascimento   →  dataNascimento
+criado_em         →  criadoEm
+```
 
 ---
 
 # 🔄 CRUD que será desenvolvido
 
-Durante o curso implementaremos as quatro operações fundamentais:
+Durante o curso implementaremos as quatro operações fundamentais de persistência:
 
-| Operação  | SQL      | Java          |
-| --------- | -------- | ------------- |
-| Criar     | `INSERT` | `salvar()`    |
-| Consultar | `SELECT` | `listar()`    |
-| Atualizar | `UPDATE` | `atualizar()` |
-| Excluir   | `DELETE` | `excluir()`   |
+```text
+CRUD
+
+C → Create
+R → Read
+U → Update
+D → Delete
+```
+
+Em nosso projeto:
+
+| Operação  | SQL      | Java                              |
+| --------- | -------- | --------------------------------- |
+| Criar     | `INSERT` | `salvar()`                        |
+| Consultar | `SELECT` | `buscarPorId()` / `listarTodos()` |
+| Atualizar | `UPDATE` | `atualizar()`                     |
+| Excluir   | `DELETE` | `excluir()`                       |
 
 ---
 
 # 🏁 Resultado final
 
-Ao final das quatro partes, teremos uma aplicação organizada aproximadamente desta forma:
+Ao final do curso teremos uma aplicação com responsabilidades separadas:
 
 ```text
 Main
+ │
+ ▼
+ClienteService
  │
  ▼
 ClienteDAO
@@ -368,6 +491,36 @@ JDBC
 PostgreSQL
 ```
 
+Cada camada terá um propósito específico:
+
+```text
+Main
+↓
+Inicia e utiliza a aplicação
+
+Service
+↓
+Regras de negócio
+
+DAO
+↓
+Persistência
+
+ConnectionFactory
+↓
+Criação das conexões
+
+JDBC
+↓
+Comunicação com o banco
+
+PostgreSQL
+↓
+Armazenamento dos dados
+```
+
 O projeto será simples propositalmente.
 
-O objetivo não é criar uma arquitetura complexa, mas entender **como uma aplicação Java conversa diretamente com um banco de dados utilizando JDBC** e como podemos organizar esse acesso de maneira mais limpa.
+O objetivo não é criar uma arquitetura complexa, mas entender **como uma aplicação Java conversa diretamente com um banco de dados utilizando JDBC** e como podemos evoluir esse código aplicando **separação de responsabilidades, DAO, interfaces, Factory, Singleton e Service**.
+
+Ao final, o aluno terá uma base que poderá reutilizar em outros pequenos projetos e estará mais preparado para entender como frameworks como **Spring** organizam aplicações Java.
